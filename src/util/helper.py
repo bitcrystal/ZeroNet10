@@ -75,11 +75,13 @@ def shellquote(*args):
 
 
 def packPeers(peers):
-    packed_peers = {"ip4": [], "onion": []}
+    packed_peers = {"ip4": [], "onion": [], "i2p": []}
     for peer in peers:
         try:
             if peer.ip.endswith(".onion"):
                 packed_peers["onion"].append(peer.packMyAddress())
+            elif peer.ip.endswith(".i2p"):
+                packed_peers["i2p"].append(peer.packMyAddress())
             else:
                 packed_peers["ip4"].append(peer.packMyAddress())
         except Exception:
@@ -107,6 +109,17 @@ def packOnionAddress(onion, port):
 # From 12byte format to ip, port
 def unpackOnionAddress(packed):
     return base64.b32encode(packed[0:-2]).lower() + ".onion", struct.unpack("H", packed[-2:])[0]
+
+# i2p, port to packed 12byte format
+def packI2PAddress(i2p, port):
+    i2p = i2p.replace(".i2p", "")
+    return base64.b32decode(i2p.upper()) + struct.pack("H", port)
+
+
+# i2p 12byte format to ip, port
+def unpackI2PAddress(packed):
+    return base64.b32encode(packed[0:-2]).lower() + ".i2p", struct.unpack("H", packed[-2:])[0]
+
 
 
 # Get dir from file
@@ -217,7 +230,3 @@ def avg(items):
         return sum(items) / len(items)
     else:
         return 0
-
-local_ip_pattern = re.compile(r"^(127\.)|(192\.168\.)|(10\.)|(172\.1[6-9]\.)|(172\.2[0-9]\.)|(172\.3[0-1]\.)|(::1$)|([fF][cCdD])")
-def isPrivateIp(ip):
-    return local_ip_pattern.match(ip)

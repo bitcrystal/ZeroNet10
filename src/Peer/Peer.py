@@ -71,7 +71,6 @@ class Peer(object):
             self.log("Getting connection...")
 
         if connection:  # Connection specified
-            self.log("Assigning connection %s" % connection)
             self.connection = connection
             self.connection.sites += 1
         else:  # Try to find from connection pool or create new connection
@@ -111,6 +110,8 @@ class Peer(object):
     def packMyAddress(self):
         if self.ip.endswith(".onion"):
             return helper.packOnionAddress(self.ip, self.port)
+        elif self.ip.endswith(".i2p"):
+            return helper.packI2PAddress(self.ip, self.port)
         else:
             return helper.packAddress(self.ip, self.port)
 
@@ -243,10 +244,13 @@ class Peer(object):
             site = self.site  # If no site defined request peers for this site
 
         # give back 5 connectible peers
-        packed_peers = helper.packPeers(self.site.getConnectablePeers(5, allow_private=False))
+        packed_peers = helper.packPeers(self.site.getConnectablePeers(5))
         request = {"site": site.address, "peers": packed_peers["ip4"], "need": need_num}
         if packed_peers["onion"]:
             request["peers_onion"] = packed_peers["onion"]
+        if packed_peers["i2p"]:
+            request["peers_i2p"] = packed_peers["i2p"]
+
         res = self.request("pex", request)
         if not res or "error" in res:
             return False
@@ -261,6 +265,13 @@ class Peer(object):
             address = helper.unpackOnionAddress(peer)
             if site.addPeer(*address):
                 added += 1
+        # I2P
+        for peer in res.get("peers_i2p", []):
+            address = helper.unpackI2PAddress(peer)
+            if site.addPeer(*address):
+                added += 1
+
+
 
         if added:
             self.log("Added peers using pex: %s" % added)
@@ -298,6 +309,10 @@ class Peer(object):
             if hash not in back:
                 back[hash] = []
             back[hash] += map(helper.unpackOnionAddress, onion_peers)
+        for hash, i2p_peers in res.get("peers_i2p", {}).items()[0:30]:
+            if hash not in back:
+                back[hash] = []
+            back[hash] += map(helper.unpackI2PAddress, i2p_peers)
 
         return back
 
